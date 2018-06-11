@@ -1,7 +1,7 @@
 import json
 import csv
 
-
+from itertools import chain
 from yargy import Parser, rule, and_, or_
 from yargy.predicates import gram, is_capitalized, dictionary, in_, normalized, eq, caseless, type
 from yargy.interpretation import fact
@@ -33,21 +33,25 @@ with open(CRAWLED_DATA) as f:
         name = j['name']
         positions = []
         dates = []
+        markers = []
         for row in j['table']:
             positions.append(row[3]) #todo: filter out nones
         for date in j['table']:
             dates.append(row[2])
-        data.append([name, dates, positions])
+        for marker in j['table']:
+            markers.append(row[0])
+        data.append([name, markers, dates, positions])
 
 
 failed_parses = []
 with open('positions.tsv','w') as f:
     w = csv.writer(f, delimiter='\t')
-    w.writerow(['name','date','position','unit'])
+    w.writerow(['name', 'marker','date','position','unit'])
     for member in data:
         for i in range(len(member[1])):
-            d = member[2][i]
-            date = member[1][i]
+            d = member[3][i]
+            date = member[2][i]
+            marker = member[1][i]
             if d:
                 p, r = parse(d)
                 if not p:
@@ -55,11 +59,12 @@ with open('positions.tsv','w') as f:
             else:
                 p = ''
                 r = ''
-            w.writerow([member[0], date, p, r])
+            w.writerow([member[0], marker, date, p, r])
 
 with open('failed_parses.txt','w') as f:
     for line in sorted(failed_parses):
         print(line, file = f)
+
 
 # examples = ['Особоуполномоченный НКВД СССР', 'авиатехник авиаэскадрильи']
 # for ex in examples:
