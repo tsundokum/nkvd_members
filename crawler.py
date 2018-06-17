@@ -1,12 +1,41 @@
 import scrapy
+import requests
+from w3lib.http import basic_auth_header
 
 NKVD_MEMO_ENTRY = 'https://nkvd.memo.ru/index.php/%D0%9D%D0%9A%D0%92%D0%94:%D0%93%D0%BB%D0%B0%D0%B2%D0%BD%D0%B0%D1%8F_%D1%81%D1%82%D1%80%D0%B0%D0%BD%D0%B8%D1%86%D0%B0'
 
 ROOT = 'https://nkvd.memo.ru'
 
 
+class RotatingProxyMiddleware(object):
+    def __init__(self):
+        with open('.proxy.txt') as f:
+            self.proxy_address = f.readline().strip()
+            self.proxy_login = f.readline().strip()
+            self.proxy_pass = f.readline().strip()
+
+    def process_request(self, request, spider):
+        request.meta['proxy'] = f'http://{self.proxy_address}'
+        request.headers['Proxy-Authorization'] = basic_auth_header(self.proxy_login, self.proxy_pass)
+
+    def process_exception(self, request, exception, spider):
+        spider.logger.info(exception)
+
+
+def fullname(o):
+    return o.__module__ + "." + o.__name__
+
+
 class NKVDMemo(scrapy.Spider):
     name = "nkvdmemo"
+
+    custom_settings = {
+        'CONCURRENT_REQUESTS_PER_IP': 1,
+        'DOWNLOADER_MIDDLEWARES': {
+            fullname(RotatingProxyMiddleware): 100,
+            'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
+        }
+    }
 
     def start_requests(self):
         yield scrapy.Request(url=NKVD_MEMO_ENTRY, callback=self.parse_letters)
